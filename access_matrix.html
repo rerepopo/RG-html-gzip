@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>韌體資源存取總覽（矩陣加關係圖，假資料）</title>
+<style>
+:root{--bg:#f4f5f7;--pn:#fff;--ink:#1c2430;--mu:#667085;--ln:#d5dae1;--w:#b3361f;--r:#1f5f99;--rb:#dbe8f6;--rw:#6b4bb8}
+@media(prefers-color-scheme:dark){:root{--bg:#14181f;--pn:#1c222b;--ink:#e6e9ee;--mu:#98a2b3;--ln:#364051;--w:#d4553b;--r:#9cc8f2;--rb:#26415e;--rw:#8a6fd8}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 "Segoe UI","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif}
+main{max-width:1400px;margin:auto;padding:16px;display:grid;gap:16px}
+section{background:var(--pn);border:1px solid var(--ln);border-radius:8px;padding:12px;min-width:0}
+h1{font-size:16px;margin:0 0 4px}.s{color:var(--mu);font-size:12px;margin:0 0 8px}
+.bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:8px}
+.bar label{cursor:pointer}
+input[type=search],button{padding:4px 8px;border:1px solid var(--ln);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+button{cursor:pointer}
+#mx{overflow:auto;max-height:520px;border:1px solid var(--ln);border-radius:6px}
+table{border-collapse:separate;border-spacing:0}
+td,th{border-right:1px solid var(--ln);border-bottom:1px solid var(--ln);text-align:center;padding:0;background:var(--pn)}
+td{min-width:22px;height:22px;font-size:11px;cursor:pointer}
+td.w,th.g{min-width:58px}
+td.W{background:var(--w);color:#fff}td.R{background:var(--rb);color:var(--r)}td.RW{background:var(--rw);color:#fff}
+td.hot{color:var(--w);font-weight:600}
+td.D{background:var(--ink);color:var(--pn)}td.I{background:var(--rb);color:var(--r)}
+th.g{position:sticky;top:0;z-index:2;font-size:12px;cursor:pointer;height:26px;padding:0 6px;white-space:nowrap}
+th.v{position:sticky;top:26px;z-index:2;writing-mode:vertical-rl;height:120px;font:11px Consolas,"Courier New",monospace;white-space:nowrap;cursor:pointer;padding:4px 0}
+th.c0{position:sticky;left:0;z-index:3;text-align:left;padding:0 8px;min-width:70px;font-size:12px;white-space:nowrap}
+tr.ft th,tr.ft td{position:sticky;bottom:0;z-index:2;background:var(--pn)}
+svg text{font:12px "Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif;fill:var(--ink)}
+svg .mono{font:13px Consolas,"Courier New",monospace}svg .mu{fill:var(--mu)}svg .rn{fill:var(--pn)}svg .b{font-weight:600}
+#wrap{overflow:auto}
+.tw{overflow:auto;max-height:280px;border:1px solid var(--ln);border-radius:6px;margin:4px 0}
+table.st td,table.st th{text-align:left;padding:3px 8px;min-width:0;height:auto;cursor:default;font:12px "Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif;white-space:nowrap;position:static}
+table.st th{background:var(--bg)}table.st .m{font-family:Consolas,"Courier New",monospace}
+.h2{font-size:14px;margin:14px 0 4px}.wn{border:1px solid var(--w);color:var(--w);padding:0 6px;border-radius:4px}
+details{margin:6px 0;font-size:13px}summary{cursor:pointer}
+h3{font-size:14px;margin:16px 0 4px}
+.t{display:block;overflow:auto;border-collapse:collapse}
+.t td,.t th{padding:4px 10px;text-align:left;font-size:12px;white-space:nowrap}
+.t .m{font-family:Consolas,"Courier New",monospace}
+.t .bad{color:var(--w);font-weight:600}
+</style></head><body><main>
+<section><h1>總覽：哪組 FSM 動了哪些資源</h1>
+<p class="s">列可切換為 FSM 或 function，欄是資源。點群組標題展開或收合，點格子或欄名稱，下方看該資源的細節。底部「寫入數」大於等於 2 代表多組 FSM 都會寫入，是耦合風險點。</p>
+<div class="bar"><label>列 <select id="dim"><option value="fsm">FSM</option><option value="fn">function</option></select></label>
+<label><input type="checkbox" id="ind" checked> 包含間接呼叫</label>
+<label><input type="checkbox" id="hid" checked> 隱藏未被使用的資源</label>
+<label><input type="checkbox" id="shr"> 只看被 2 列以上使用</label>
+<button id="ea">全部展開</button><button id="ca">全部收合</button>
+<input type="search" id="jump" list="rl" placeholder="跳到資源（輸入名稱）"><datalist id="rl"></datalist></div>
+<div id="mx"></div>
+<p class="s">W 寫入（紅）　R 讀取（藍）　RW 讀寫（紫）　收合欄的數字＝該群組被動到的資源數</p></section>
+<section><h1>FSM × function：誰共用同一個 function</h1><p class="s">●＝狀態動作直接呼叫，○＝經由其他 function 間接呼叫。底部「FSM 數」大於等於 2，表示這個 function 被多組 FSM 共用，改它會同時影響這些 FSM。</p><div id="ff" style="overflow:auto"></div></section>
+<section><h1 id="dt">細節</h1><div id="st"></div><h1 class="h2">關係圖：觸發、function、資源</h1><p class="s" id="info">點上方矩陣的格子或欄名稱。</p><div id="wrap"><svg id="g"></svg></div><div id="up"></div></section>
+</main>
+<script>
+const rnd=(s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296})(7);
+const PER=['CLK','GPIO','UART','SPI','I2C','ADC','TIMER','PWM','DMA','WDT'],RG=['CTRL','STAT','DATA','CFG','INT','CNT','CMP','DIV','EN','FLAG'];
+const VN=['mode','speed','err','state','cnt','tick','cfg','temp','volt','cur','flag','cmd','rsp','pos','tgt','ovr','log','seq','key','lvl'];
+const FN=['init_clk','init_gpio','uart_tx','uart_rx','adc_read','pwm_set','timer_start','timer_stop','dma_kick','wdt_kick','set_mode','calc_ctrl','motor_run','motor_stop','sensor_poll','log_event','fault_handle','cfg_load','spi_xfer','i2c_xfer'];
+const RES=[];PER.forEach(p=>RG.forEach(r=>RES.push({n:p+'_'+r,g:p,a:'0x'+(0x40000000+RES.length*4).toString(16).toUpperCase()})));
+VN.forEach(v=>RES.push({n:'g_'+v,g:'SW',a:''}));
+const A=[];FN.forEach((f,i)=>{const home=PER[i%10],got=new Set(),add=(r,p)=>{if(!got.has(r.n)){got.add(r.n);A.push([f,r.n,rnd()<p?'W':'R'])}};
+ RES.filter(r=>r.g===home).forEach(r=>{if(rnd()<.6)add(r,.5)});
+ for(let k=0;k<3;k++)add(RES[100+Math.floor(rnd()*20)],.4);
+ if(rnd()<.5)add(RES[Math.floor(rnd()*100)],.5);
+ if(i%4===0)add(RES[0],1);if(i%5===0)add(RES[100],1)});
+const C=[];FN.forEach((f,i)=>{if(i>=8)for(let k=0;k<1+(rnd()<.5);k++)C.push([f,FN[Math.floor(rnd()*i)]])});
+const ST=['INIT','IDLE','RUN','STOP','FAULT'],TR=['entry','do','exit'],U=[['init_clk','BOOT','START','boot'],['init_gpio','BOOT','START','boot'],['cfg_load','BOOT','START','boot']];
+for(let m=1;m<=9;m++)ST.slice(0,3+m%3).forEach(s=>TR.forEach(t=>{if(rnd()<.55)U.push([FN[Math.floor(rnd()*20)],'FSM-'+m,s,t])}));
+const kindOf=r=>r.g==='SW'?['flag','mode','num','bit'][RES.indexOf(r)%4]:'bit';
+const MODES=['IDLE','RUN','STOP','FAULT'],SITES=[];
+A.forEach(([f,rn,w])=>{if(w!=='W')return;const r=RES.find(x=>x.n===rn),k=kindOf(r),s={f,rn,k,file:f.split('_')[0]+'.c',line:20+Math.floor(rnd()*200),g:''};
+ if(k==='bit'){const b=Math.floor(rnd()*6),t=rnd();if(t<.15){s.op='=';s.v='0x00';s.b=-1}else if(t<.6){s.op='|=';s.v='BIT'+b;s.b=b}else{s.op='&=';s.v='~BIT'+b;s.b=b}}
+ else if(k==='flag'){s.op='=';s.v=rnd()<.5?'1':'0';if(rnd()<.6)s.g=s.v==='0'?'== 1':'== 0'}
+ else if(k==='mode'){s.op='=';s.v=MODES[Math.floor(rnd()*4)];if(rnd()<.5)s.g='== '+MODES[Math.floor(rnd()*4)]}
+ else{s.op=['+=','=','='][Math.floor(rnd()*3)];s.v=s.op==='+='?'1':rnd()<.5?'g_target':'calc_x()'}
+ SITES.push(s)});
+const rch=f=>{const s=new Set([f]);C.filter(c=>c[0]===f).forEach(c=>rch(c[1]).forEach(x=>s.add(x)));return s};
+const VT={mode:'e',state:'e',cmd:'e',lvl:'e',flag:'f',ovr:'f',err:'f',key:'f',log:'f',cnt:'n',tick:'n',seq:'n'},EV=['IDLE','RUN','STOP','FAULT'],S=[];
+A.forEach(([f,rn,w])=>{const res=RES.find(x=>x.n===rn),t=res.g==='SW'?(VT[rn.slice(2)]||'x'):'h',n=1+(rnd()<.3);
+ for(let i=0;i<n;i++){const s={f,r:rn,rw:w,file:f.split('_')[0]+'.c',line:20+Math.floor(rnd()*300),op:'',val:'',guard:''},vs=t==='e'?EV:t==='f'?['0','1']:null;
+  if(w==='R'){if(vs&&rnd()<.6)s.guard='== '+vs[Math.floor(rnd()*vs.length)]}
+  else if(vs){const k=Math.floor(rnd()*vs.length);s.op='=';s.val=vs[k];if(rnd()<.75)s.guard=t==='f'?(k===0?'== 1':''):(k>0?'== '+vs[k-1]:'')}
+  else if(t==='n'){s.op=rnd()<.7?'++':'=';s.val=s.op==='='?'0':''}
+  else if(t==='x'){s.op='=';const q=rnd();s.val=q<.4?'g_'+VN[Math.floor(rnd()*20)]:q<.7?String(Math.floor(rnd()*100)):'?'}
+  else{const q=rnd(),b=Math.floor(rnd()*4);if(q<.15){s.op='HAL';s.val=res.g+'_Set()'}else if(q<.35){s.op='=';s.val='0x00'}else if(q<.65){s.op='|=';s.val='BIT'+b}else if(q<.9){s.op='&= ~';s.val='BIT'+b}else{s.op='=';s.val='0x'+Math.floor(rnd()*255).toString(16).toUpperCase()}}
+  S.push(s)}});
+const ROWS=['BOOT',...Array.from({length:9},(_,i)=>'FSM-'+(i+1))],GROUPS=['SW',...PER];
+const DM={};FN.forEach(f=>DM[f]={});A.forEach(([f,r,w])=>DM[f][r]=(DM[f][r]||'')+w);
+const EM={},E=f=>EM[f]||(EM[f]=(()=>{const m={...DM[f]};C.filter(c=>c[0]===f).forEach(c=>{const e=E(c[1]);for(const r in e)m[r]=(m[r]||'')+e[r]});return m})());
+const reach=f=>{const s=new Set([f]);C.filter(c=>c[0]===f).forEach(c=>reach(c[1]).forEach(x=>s.add(x)));return s};
+const nm=s=>{const w=s.includes('W'),r=s.includes('R');return w&&r?'RW':w?'W':'R'};
+const $=s=>document.querySelector(s),NS='http://www.w3.org/2000/svg',ex={SW:true};
+const el=(t,a,p,tx)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(tx!=null)e.textContent=tx;if(p)p.appendChild(e);return e};
+const fc=f=>`hsl(${((f==='BOOT'?0:+f.slice(4))*47+200)%360} 55% 45%)`;
+let M={};
+const src=f=>$('#ind').checked?E(f):DM[f];
+function mat(){
+ const fnm=$('#dim').value==='fn',rows=fnm?FN:ROWS;M={};rows.forEach(r=>M[r]={});
+ if(fnm)FN.forEach(f=>{M[f]={...src(f)}});else U.forEach(([f,m])=>{const s=src(f);for(const r in s)M[m][r]=(M[m][r]||'')+s[r]});
+ const st={};RES.forEach(r=>{let u=0,w=0;rows.forEach(m=>{const s=M[m][r.n];if(s){u++;if(s.includes('W'))w++}});st[r.n]={u,w}});
+ const hid=$('#hid').checked,shr=$('#shr').checked,vis=r=>(!hid||st[r.n].u>0)&&(!shr||st[r.n].u>=2);
+ let h1='<tr><th class="c0 g"></th>',h2='<tr><th class="c0 v" style="height:120px">'+(fnm?'function':'FSM')+'</th>',cols=[];
+ GROUPS.forEach(g=>{const rs=RES.filter(r=>r.g===g&&vis(r));if(!rs.length)return;
+  if(ex[g]){h1+=`<th class="g" colspan="${rs.length}" data-g="${g}">▼ ${g}</th>`;rs.forEach(r=>{h2+=`<th class="v" data-r="${r.n}" title="${r.n} ${r.a}">${r.n}</th>`;cols.push({r})})}
+  else{h1+=`<th class="g" data-g="${g}">▶ ${g}</th>`;h2+=`<th class="v" data-g="${g}">${rs.length} 個</th>`;cols.push({g,rs})}});
+ let b='';rows.forEach(m=>{b+=`<tr><th class="c0">${m}</th>`+cols.map(c=>{
+  if(c.r){const s=M[m][c.r.n];return s?`<td class="${nm(s)}" data-r="${c.r.n}">${nm(s)}</td>`:`<td data-r="${c.r.n}"></td>`}
+  const t=c.rs.filter(r=>M[m][r.n]);return t.length?`<td class="w ${t.some(r=>M[m][r.n].includes('W'))?'W':'R'}" data-g="${c.g}">${t.length}</td>`:'<td class="w"></td>'}).join('')+'</tr>'});
+ b+='<tr class="ft"><th class="c0">寫入數</th>'+cols.map(c=>{
+  if(c.r){const w=st[c.r.n].w;return `<td class="${w>1?'hot':''}" data-r="${c.r.n}">${w||''}</td>`}
+  const n=c.rs.filter(r=>st[r.n].w>1).length;return `<td class="w ${n?'hot':''}" data-g="${c.g}">${n?'!'+n:''}</td>`}).join('')+'</tr>';
+ $('#mx').innerHTML='<table><thead>'+h1+'</tr>'+h2+'</tr></thead><tbody>'+b+'</tbody></table>';
+ ff();if(cur)detail(cur)}
+function ff(){
+ const D={},I={};ROWS.forEach(m=>{D[m]=new Set();I[m]=new Set()});
+ const all=f=>{const s=new Set([f]);C.filter(c=>c[0]===f).forEach(c=>all(c[1]).forEach(x=>s.add(x)));return s};
+ U.forEach(([f,m])=>{D[m].add(f);if($('#ind').checked)all(f).forEach(x=>{if(x!==f)I[m].add(x)})});
+ const cnt={};FN.forEach(f=>cnt[f]=ROWS.filter(m=>D[m].has(f)||I[m].has(f)).length);
+ let h='<table><thead><tr><th class="c0"></th>'+FN.map(f=>`<th class="v" style="top:0">${f}</th>`).join('')+'</tr></thead><tbody>';
+ ROWS.forEach(m=>{h+=`<tr><th class="c0">${m}</th>`+FN.map(f=>D[m].has(f)?'<td class="D">●</td>':I[m].has(f)?'<td class="I">○</td>':'<td></td>').join('')+'</tr>'});
+ h+='<tr><th class="c0">FSM 數</th>'+FN.map(f=>`<td class="${cnt[f]>1?'hot':''}">${cnt[f]||''}</td>`).join('')+'</tr></tbody></table>';
+ $('#ff').innerHTML=h}
+function upd(rn){
+ const r=RES.find(x=>x.n===rn),k=kindOf(r),S=SITES.filter(s=>s.rn===rn).sort((a,b)=>a.file.localeCompare(b.file)||a.line-b.line);
+ const ctx=f=>{const c=U.filter(u=>rch(u[0]).has(f)).map(u=>u.slice(1).join('·'));return c.length?c.slice(0,2).join('、')+(c.length>2?' 等 '+c.length+' 處':''):'（無 FSM 觸發）'};
+ const nm=a=>a.map(s=>s.f+'()'+(s.b===-1?'（整體清零）':'')).join('、');
+ let h='<h3>更新位置（'+S.length+'）</h3>';
+ h+=S.length?'<table class="t"><tr><th>function</th><th>位置</th><th>由誰觸發</th><th>操作</th></tr>'+S.map(s=>`<tr><td class="m">${s.f}()</td><td>${s.file}:${s.line}</td><td>${ctx(s.f)}</td><td class="m">${s.g?'if (值 '+s.g+') ':''}${s.op} ${s.v}</td></tr>`).join('')+'</table>':'<p class="s">沒有寫入位置。</p>';
+ if(k==='bit'){const bits=[...new Set(S.filter(s=>s.b>=0).map(s=>s.b))].sort(),all0=S.filter(s=>s.b===-1);
+  h+='<h3>位元生命週期</h3>'+(bits.length?'<table class="t"><tr><th>位元</th><th>設定</th><th>清除</th></tr>'+bits.map(b=>{const st=S.filter(s=>s.b===b&&s.op==='|='),cl=S.filter(s=>s.b===b&&s.op==='&=').concat(all0);
+   return `<tr><td class="m">BIT${b}</td><td class="${st.length?'':'bad'}">${st.length?nm(st):'沒人設定'}</td><td class="${cl.length?'':'bad'}">${cl.length?nm(cl):'沒人清除'}</td></tr>`}).join('')+'</table>':'<p class="s">沒有位元運算的寫入。</p>')}
+ else if(k==='flag'||k==='mode'){const W=new Set(S.map(s=>s.v)),G=new Set(S.filter(s=>s.g).map(s=>s.g.slice(3))),nw=[...W].filter(v=>!G.has(v)),ng=[...G].filter(v=>!W.has(v));
+  h+='<h3>值轉換</h3><table class="t"><tr><th>讀到</th><th>寫成</th><th>function</th></tr>'+S.map(s=>`<tr><td class="m">${s.g?s.g.slice(3):'（無條件）'}</td><td class="m">${s.v}</td><td>${s.f}()</td></tr>`).join('')+'</table>';
+  h+='<p class="s">'+(nw.length?'提示：寫入了 '+nw.join('、')+'，但沒有條件在等它。':'')+(ng.length?' 提示：有條件在等 '+ng.join('、')+'，但沒人寫入。':'')+(nw.length||ng.length?'':'寫入的值與等待的條件互相對得上。')+'</p>'}
+ else h+='<p class="s">數值型變數：只列更新位置與來源，不畫值轉換。</p>';
+ $('#up').innerHTML=h}
+let cur=null;
+function detail(rn){cur=rn;const r=RES.find(x=>x.n===rn),svg=$('#g'),rows=[];sites(rn);
+ U.forEach(u=>{const s=src(u[0])[rn];if(s)rows.push({k:u.slice(1).join('|'),f:u[0],t:nm(s),d:!!DM[u[0]][rn]})});
+ svg.textContent='';upd(rn);$('#dt').textContent='細節：'+rn+(r.a?'（'+r.g+'，'+r.a+'）':'（SW 變數）');
+ if(!rows.length){$('#info').textContent='目前設定下，沒有 FSM 使用這個資源。';svg.setAttribute('width',0);svg.setAttribute('height',0);return}
+ const cx=[...new Set(rows.map(x=>x.k))].sort(),fx=[...new Set(rows.map(x=>x.f))].sort(),RH=48,CW=150,n=Math.max(cx.length,fx.length),H=n*RH,pos={};
+ [cx,fx].forEach((c,ci)=>{const y0=10+(H-c.length*RH)/2;c.forEach((k,i)=>pos[(ci?'f:':'c:')+k]={x:10+ci*220,y:y0+i*RH,h:38})});
+ pos.r={x:450,y:10,h:Math.max(H-10,48)};
+ $('#info').textContent=`${cx.length} 個狀態動作，經由 ${fx.length} 個 function 使用此資源。`;
+ svg.setAttribute('viewBox',`0 0 610 ${H+20}`);svg.setAttribute('width',610);svg.setAttribute('height',H+20);
+ svg.innerHTML='<defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>';
+ const ed=[],seen=new Set(),ft={};
+ rows.forEach(x=>{ft[x.f]={t:x.t,d:x.d};const k=x.k+x.f;if(!seen.has(k)){seen.add(k);ed.push(['c:'+x.k,'f:'+x.f,''])}});
+ fx.forEach(f=>ed.push(['f:'+f,'r',ft[f].t]));
+ ed.forEach(([a,b,t])=>{const s=pos[a],d=pos[b],x1=s.x+CW,y1=s.y+s.h/2,x2=d.x-2,y2=t?y1:d.y+d.h/2,m=(x2-x1)/2,
+  p=el('path',{d:`M${x1} ${y1}C${x1+m} ${y1},${x2-m} ${y2},${x2} ${y2}`,fill:'none','stroke-width':t?1.8:1.2,'marker-end':'url(#ar)',stroke:t.includes('W')?'var(--w)':t?'var(--r)':'var(--mu)'},svg);
+  if(t==='R')p.setAttribute('stroke-dasharray','5 4');
+  if(t)el('text',{x:x2-24,y:y1-5,class:'b',style:'fill:'+(t.includes('W')?'var(--w)':'var(--r)')},svg,t)});
+ cx.forEach(k=>{const p=pos['c:'+k],[f,s,t]=k.split('|');
+  el('rect',{x:p.x,y:p.y,width:CW,height:38,rx:6,fill:'var(--pn)',stroke:'var(--ln)'},svg);
+  el('rect',{x:p.x,y:p.y,width:5,height:38,rx:2,fill:fc(f)},svg);
+  el('text',{x:p.x+14,y:p.y+16,class:'b'},svg,f+' · '+s);el('text',{x:p.x+14,y:p.y+31,class:'mu'},svg,t)});
+ fx.forEach(f=>{const p=pos['f:'+f];
+  el('rect',{x:p.x,y:p.y,width:CW,height:38,rx:6,fill:'var(--pn)',stroke:'var(--mu)'},svg);
+  el('text',{x:p.x+10,y:p.y+16,class:'mono'},svg,f+'()');el('text',{x:p.x+10,y:p.y+31,class:'mu'},svg,(ft[f].d?'直接':'間接')+' '+ft[f].t)});
+ const p=pos.r;el('rect',{x:p.x,y:p.y,width:CW,height:p.h,rx:8,fill:'var(--ink)'},svg);
+ el('text',{x:p.x+CW/2,y:p.y+p.h/2-4,'text-anchor':'middle',class:'mono rn'},svg,rn);
+ el('text',{x:p.x+CW/2,y:p.y+p.h/2+14,'text-anchor':'middle',class:'rn'},svg,r.a||'SW 變數')}
+function sites(rn){
+ const r=RES.find(x=>x.n===rn),hw=r.g!=='SW',so=(a,b)=>a.file.localeCompare(b.file)||a.line-b.line,W=S.filter(s=>s.r===rn&&s.rw==='W').sort(so),R=S.filter(s=>s.r===rn&&s.rw==='R').sort(so);
+ const ind=$('#ind').checked,tr=f=>{const t=[...new Set(U.filter(u=>ind?reach(u[0]).has(f):u[0]===f).map(u=>u[1]+' '+u[2]))].sort();return t.length?t.slice(0,2).join('、')+(t.length>2?' 等 '+t.length+' 處':''):'（無）'};
+ const tb=rs=>'<div class="tw"><table class="st"><tr><th>位置</th><th>function</th><th>觸發</th><th>操作</th><th>條件</th></tr>'+rs.map(s=>`<tr><td class="m">${s.file}:${s.line}</td><td class="m">${s.f}()</td><td>${tr(s.f)}</td><td class="m">${s.rw==='W'?(s.op+' '+s.val).trim():'讀取'}</td><td class="m">${s.guard}</td></tr>`).join('')+'</table></div>';
+ let h=W.length?`<p class="s">${W.length} 處更新，來自 ${new Set(W.map(s=>s.f)).size} 個 function；另有 ${R.length} 處讀取。條件欄只解析「與常數比較」的寫法。</p>`+tb(W):'<p class="s">沒有更新位置，這個資源只被讀取。</p>';
+ if(R.length)h+=`<details><summary>讀取位置（${R.length}）</summary>${tb(R)}</details>`;
+ if(hw&&W.length){
+  const set={},clr={},z=[];
+  W.forEach(s=>{const m=/BIT(\d)/.exec(s.val);if(s.op==='|='&&m)(set[m[1]]=set[m[1]]||[]).push(s.f+'()');else if(s.op==='&= ~'&&m)(clr[m[1]]=clr[m[1]]||[]).push(s.f+'()');else if(s.op==='='&&s.val==='0x00')z.push(s.f+'()（全清）')});
+  const bits=[...new Set([...Object.keys(set),...Object.keys(clr)])].sort(),u=a=>a&&a.length?[...new Set(a)].join('、'):'—';
+  h+='<h1 class="h2">位元生命週期</h1>'+(bits.length?'<div class="tw"><table class="st"><tr><th>位元</th><th>設定</th><th>清除</th><th></th></tr>'+bits.map(b=>{const c=[...(clr[b]||[]),...z],w=!set[b]?'沒人設定':!c.length?'沒人清除':'';return `<tr><td class="m">BIT${b}</td><td class="m">${u(set[b])}</td><td class="m">${u(c)}</td><td>${w?`<span class="wn">${w}</span>`:''}</td></tr>`}).join('')+'</table></div>':'<p class="s">沒有位元層級的設定或清除操作。</p>')}
+ else if(W.length){
+  const ws=W.map(s=>({f:s.f,to:s.op==='++'?'+1':(s.val||'?'),fr:s.guard?s.guard.replace('== ',''):'任意'})),c={};
+  ws.forEach(x=>{c[x.to]=(c[x.to]||0)+1;if(x.fr!=='任意')c[x.fr]=(c[x.fr]||0)+1});
+  const top=Object.keys(c).sort((a,b)=>c[b]-c[a]).slice(0,6).sort(),mp=v=>v==='任意'||top.includes(v)?v:'其他',E2={};
+  ws.forEach(x=>{const a=mp(x.fr),b=mp(x.to),k=a+'|'+b;(E2[k]=E2[k]||{a,b,n:[]}).n.push(x.f+'()')});
+  const es=Object.values(E2).filter(e=>e.a!==e.b),nd=['任意',...top];if(es.some(e=>e.a==='其他'||e.b==='其他'))nd.push('其他');
+  const X=v=>50+nd.indexOf(v)*96,Wd=60+nd.length*96,Y=112;
+  let g=`<svg width="${Wd}" height="230" viewBox="0 0 ${Wd} 230"><defs><marker id="ar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`;
+  es.forEach(e=>{const xa=X(e.a),xb=X(e.b),up=xb>xa,d=Math.abs(xb-xa)/96,y0=up?Y-16:Y+16,cy=up?Y-30-14*d:Y+30+14*d;
+   g+=`<g><title>${[...new Set(e.n)].join('、')}</title><path d="M${xa} ${y0}Q${(xa+xb)/2} ${cy} ${xb} ${y0}" fill="none" stroke="var(--w)" stroke-width="1.6" marker-end="url(#ar2)"/><text class="b" x="${(xa+xb)/2}" y="${(y0+cy)/2+(up?-4:12)}" text-anchor="middle" style="fill:var(--w)">${e.n.length}</text></g>`});
+  nd.forEach(v=>{const x=X(v);g+=`<rect x="${x-34}" y="${Y-16}" width="68" height="32" rx="6" fill="var(--pn)" stroke="var(--mu)"${v==='任意'?' stroke-dasharray="4 3"':''}/><text class="mono" x="${x}" y="${Y}" text-anchor="middle" dominant-baseline="central">${v}</text>`});
+  h+='<h1 class="h2">值轉換圖</h1><p class="s">箭頭是「從條件值（任意＝無條件）寫成新值」，數字是寫入位置數，滑過箭頭可看是誰寫的。</p><div class="tw" style="max-height:none">'+g+'</svg></div>'}
+ $('#st').innerHTML=h}
+$('#mx').onclick=e=>{const r=e.target.closest('[data-r]'),g=e.target.closest('[data-g]');
+ if(r){detail(r.dataset.r)}else if(g){ex[g.dataset.g]=!ex[g.dataset.g];mat()}};
+['ind','hid','shr','dim'].forEach(i=>$('#'+i).onchange=mat);
+$('#ea').onclick=()=>{GROUPS.forEach(g=>ex[g]=true);mat()};
+$('#ca').onclick=()=>{GROUPS.forEach(g=>ex[g]=false);mat()};
+$('#rl').innerHTML=RES.map(r=>`<option value="${r.n}">`).join('');
+$('#jump').onchange=e=>{const r=RES.find(x=>x.n===e.target.value.trim());if(r){ex[r.g]=true;cur=r.n;mat()}};
+mat();
+</script></body></html>
